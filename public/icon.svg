@@ -1,0 +1,21 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512">
+  <rect width="512" height="512" rx="96" fill="#1a6b4a"/>
+  <g transform="translate(256,256)">
+    <!-- Water waves -->
+    <path d="M-180,60 Q-130,30 -80,60 T20,60 T120,60 T180,60" fill="none" stroke="#ffffff" stroke-width="8" opacity="0.3"/>
+    <path d="M-180,90 Q-130,60 -80,90 T20,90 T120,90 T180,90" fill="none" stroke="#ffffff" stroke-width="6" opacity="0.2"/>
+    <!-- Kayak body -->
+    <ellipse cx="0" cy="20" rx="140" ry="22" fill="#e8c44a" opacity="0.95"/>
+    <ellipse cx="0" cy="18" rx="130" ry="16" fill="#f0d060" opacity="0.7"/>
+    <!-- Paddle -->
+    <line x1="-90" y1="-60" x2="90" y2="-10" stroke="#ffffff" stroke-width="7" stroke-linecap="round"/>
+    <!-- Paddle blades -->
+    <ellipse cx="-95" cy="-62" rx="28" ry="10" fill="#ffffff" transform="rotate(-20,-95,-62)" opacity="0.9"/>
+    <ellipse cx="95" cy="-8" rx="28" ry="10" fill="#ffffff" transform="rotate(-20,95,-8)" opacity="0.9"/>
+    <!-- Person silhouette -->
+    <circle cx="0" cy="-20" r="16" fill="#2d8a5e"/>
+    <path d="M-12,-4 Q0,15 12,-4" fill="#2d8a5e"/>
+  </g>
+  <!-- App name area -->
+  <text x="256" y="440" text-anchor="middle" font-family="system-ui,-apple-system,sans-serif" font-size="48" font-weight="700" fill="#ffffff" opacity="0.9">THAMES PADDLE</text>
+</svg>
