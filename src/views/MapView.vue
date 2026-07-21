@@ -678,7 +678,7 @@ function handleDismissFinished() {
           <div class="stat-label">Time</div>
         </div>
         <div class="stat">
-          <div class="stat-value">{{ formatDist(recorder.stats.value.distance) }}</div>
+          <div class="stat-value">{{ recorder.stats.value.distance != null ? recorder.stats.value.distance.toFixed(2) + ' mi' : '—' }}</div>
           <div class="stat-label">Distance</div>
         </div>
         <div class="stat">
@@ -692,7 +692,7 @@ function handleDismissFinished() {
       </div>
       <div class="stat-footer">
         <span v-if="nextLock" class="stat-mile">
-          🔒 {{ nextLock.name }} {{ formatDistShort(nextLock.distanceMiles) }}
+          🔒 {{ nextLock.name }} {{ nextLock.distanceMiles.toFixed(2) }} mi
         </span>
         <span v-else-if="nearestLandmark" class="stat-mile">
           📍 {{ nearestLandmark.name }}
