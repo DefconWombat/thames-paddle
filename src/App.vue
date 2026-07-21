@@ -19,6 +19,12 @@ const router = useRouter();
         </router-link>
       </li>
       <li>
+        <router-link to="/dashboard">
+          <span class="nav-icon">📊</span>
+          <span>Dashboard</span>
+        </router-link>
+      </li>
+      <li>
         <router-link to="/plan">
           <span class="nav-icon">📍</span>
           <span>Plan</span>
@@ -32,7 +38,7 @@ const router = useRouter();
       </li>
       <li>
         <router-link to="/history">
-          <span class="nav-icon">📊</span>
+          <span class="nav-icon">📜</span>
           <span>History</span>
         </router-link>
       </li>

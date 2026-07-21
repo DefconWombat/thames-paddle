@@ -58,6 +58,15 @@ const share = useShare();
 
 const mapRoute = useRoute();
 
+// Sync viewMode with route (dashboard tab vs map tab)
+watch(() => mapRoute.name, (routeName) => {
+  if (routeName === 'dashboard') {
+    viewMode.value = 'dashboard';
+  } else if (routeName === 'map') {
+    viewMode.value = 'map';
+  }
+}, { immediate: true });
+
 // Auto-start GPS when map opens
 onMounted(() => {
   if (!gps.tracking.value) {
@@ -443,9 +452,11 @@ async function handleDiscardTrip() {
   checkinTime.value = null;
 }
 
+const router = useRouter();
+
 function handleDismissFinished() {
   recorder.resetState();
-  viewMode.value = 'map';
+  router.replace('/');
 }
 </script>
 
@@ -568,7 +579,7 @@ function handleDismissFinished() {
     <button
       v-if="recorder.status.value === 'recording' || recorder.status.value === 'paused' || (gps.tracking.value && gps.position.value)"
       class="view-toggle-btn"
-      @click="viewMode = viewMode === 'map' ? 'dashboard' : 'map'"
+      @click="$router.replace(viewMode === 'map' ? '/dashboard' : '/')"
       :title="viewMode === 'map' ? 'Show dashboard' : 'Show map'"
     >
       <span v-if="viewMode === 'map'">📊</span>

@@ -8,6 +8,7 @@ import ConditionsView from './views/ConditionsView.vue';
 
 const routes = [
   { path: '/', name: 'map', component: MapView },
+  { path: '/dashboard', name: 'dashboard', component: MapView },
   { path: '/plan', name: 'plan', component: PlanView },
   { path: '/conditions', name: 'conditions', component: ConditionsView },
   { path: '/log', name: 'log', component: LogView },
