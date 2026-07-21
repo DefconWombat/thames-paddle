@@ -8,6 +8,13 @@ db.version(1).stores({
   settings: 'key'
 });
 
+db.version(2).stores({
+  trips: '++id, date, startPointId, endPointId, equipmentType, status',
+  customPoi: '++id, type, lat, lng',
+  settings: 'key',
+  photos: '++id, tripId, timestamp'
+});
+
 /**
  * Trip schema:
  * {

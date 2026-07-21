@@ -23,10 +23,11 @@ const props = defineProps({
   gpsPosition: { type: Object, default: null },          // { lat, lng, accuracy }
   followGps: { type: Boolean, default: false },
   interactive: { type: Boolean, default: true },
+  sharePickMode: { type: Boolean, default: false },
   height: { type: String, default: '100%' },
 });
 
-const emit = defineEmits(['point-click', 'map-ready', 'user-pan']);
+const emit = defineEmits(['point-click', 'map-ready', 'user-pan', 'map-click']);
 
 const mapContainer = ref(null);
 let map = null;
@@ -154,6 +155,13 @@ function initMap() {
   // Detect user panning — disable follow mode
   map.on('dragstart', () => {
     emit('user-pan');
+  });
+
+  // Map click — used for share pick mode
+  map.on('click', (e) => {
+    if (props.sharePickMode) {
+      emit('map-click', { lat: e.latlng.lat, lng: e.latlng.lng });
+    }
   });
 
   // Add markers
