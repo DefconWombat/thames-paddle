@@ -508,7 +508,7 @@ function handleDismissFinished() {
             <div class="dash-tile-label">Time</div>
           </div>
           <div class="dash-tile">
-            <div class="dash-tile-value">{{ recorder.status.value !== 'idle' ? formatDist(recorder.stats.value.distance) : '—' }}</div>
+            <div class="dash-tile-value">{{ recorder.status.value !== 'idle' ? (recorder.stats.value.distance != null ? recorder.stats.value.distance.toFixed(2) + ' mi' : '—') : '—' }}</div>
             <div class="dash-tile-label">Distance</div>
           </div>
           <div class="dash-compass">
