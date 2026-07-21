@@ -542,12 +542,12 @@ function handleDismissFinished() {
         <div class="dash-section">
           <div class="dash-row" v-if="nextLock">
             <span class="dash-row-label">🔒 Next Lock</span>
-            <span class="dash-row-value">{{ nextLock.name }} <span class="dash-row-sub">({{ formatDistShort(nextLock.distanceMiles) }})</span></span>
+            <span class="dash-row-value">{{ nextLock.name }} <span class="dash-row-sub">({{ nextLock.distanceMiles.toFixed(2) }} mi)</span></span>
           </div>
           <div class="dash-row" v-if="distToDestination">
             <span class="dash-row-label">🏁 To {{ distToDestination.name }}</span>
             <span class="dash-row-value">
-              {{ formatDist(distToDestination.distanceMiles) }}
+              {{ distToDestination.distanceMiles.toFixed(2) }} mi
               <span v-if="etaToDestination" class="dash-row-sub">(ETA {{ etaToDestination }})</span>
             </span>
           </div>
