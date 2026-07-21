@@ -1,5 +1,6 @@
 <script setup>
-import { ref, computed, watch } from 'vue';
+import { ref, computed, watch, onMounted } from 'vue';
+import { useRouter } from 'vue-router';
 import ThamesMap from '../components/ThamesMap.vue';
 import { accessPoints } from '../data/access-points.js';
 import { locks } from '../data/thames-locks.js';
@@ -7,6 +8,7 @@ import { pubsCafes } from '../data/pubs-cafes.js';
 import { campsites } from '../data/campsites.js';
 import { riverDistance, formatDistance, estimateTime, getRouteSection } from '../utils/river.js';
 import { DEFAULT_SPEED_MPH } from '../data/thames-route.js';
+import { db } from '../data/db.js';
 
 const SPEED_PRESETS = [
   { label: 'Fast', mph: 4.0, type: 'rigid' },
@@ -227,6 +229,80 @@ function swapPoints() {
 watch([startPointId, endPointId], () => {
   waypoints.value = [];
 });
+
+// ===== Saved Routes =====
+const router = useRouter();
+const savedRoutes = ref([]);
+const saveConfirm = ref(false);
+
+onMounted(async () => {
+  await loadSavedRoutes();
+});
+
+async function loadSavedRoutes() {
+  try {
+    savedRoutes.value = await db.savedRoutes.toArray();
+  } catch (e) {
+    savedRoutes.value = [];
+  }
+}
+
+async function saveRoute() {
+  if (!startPointId.value || !endPointId.value) return;
+  const stops = [startPointId.value, ...waypoints.value.map(w => w.pointId), endPointId.value];
+  const startName = startPoint.value?.name || '';
+  const endName = endPoint.value?.name || '';
+  const name = `${startName} → ${endName}`;
+
+  await db.savedRoutes.add({
+    name,
+    stops,
+    equipment: equipment.value,
+    speed: customSpeed.value,
+    created: new Date().toISOString()
+  });
+
+  saveConfirm.value = true;
+  setTimeout(() => { saveConfirm.value = false; }, 1500);
+  await loadSavedRoutes();
+}
+
+function loadRoute(route) {
+  if (!route.stops?.length) return;
+  startPointId.value = route.stops[0];
+  endPointId.value = route.stops[route.stops.length - 1];
+  if (route.equipment) equipment.value = route.equipment;
+  // Restore waypoints
+  const wpStops = route.stops.slice(1, -1);
+  waypoints.value = wpStops.map(id => ({ pointId: id, note: '' }));
+}
+
+async function deleteSavedRoute(id) {
+  await db.savedRoutes.delete(id);
+  await loadSavedRoutes();
+}
+
+function startThisTrip() {
+  if (!startPointId.value || !endPointId.value) return;
+  // Navigate to map view — the MapView's start dialog will handle actual recording
+  // We pass route info via query params
+  router.push({
+    path: '/',
+    query: {
+      startTrip: 'true',
+      equipment: equipment.value,
+      destination: endPointId.value
+    }
+  });
+}
+
+function getSavedRouteDist(route) {
+  const stops = (route.stops || []).map(id => accessPoints.find(a => a.id === id)).filter(Boolean);
+  if (stops.length >= 2) {
+    return Math.abs(stops[stops.length - 1].riverMile - stops[0].riverMile).toFixed(1);
+  }
+  return null;
+}
 </script>
 
 <template>
@@ -465,12 +541,42 @@ watch([startPointId, endPointId], () => {
             </li>
           </ul>
         </div>
+        <!-- Save & Start buttons -->
+        <div class="route-actions">
+          <button class="btn btn-primary route-action-btn" @click="startThisTrip">
+            ▶ Start This Trip
+          </button>
+          <button class="btn btn-outline route-action-btn" @click="saveRoute">
+            {{ saveConfirm ? '✓ Saved!' : '💾 Save Route' }}
+          </button>
+        </div>
       </div>
 
       <div v-else class="empty-state" style="padding: 24px 0">
         <div class="empty-icon">📍</div>
         <h3>Select start and end points</h3>
         <p>Choose your launch and landing sites to see route details, locks, pubs, and bail-out options.</p>
+      </div>
+
+      <!-- Saved routes -->
+      <div v-if="savedRoutes.length" class="saved-routes-section">
+        <h3>📁 Saved Routes</h3>
+        <div class="saved-routes-list">
+          <div v-for="route in savedRoutes" :key="route.id" class="saved-route-card">
+            <div class="saved-route-card-info" @click="loadRoute(route)">
+              <div class="saved-route-card-name">{{ route.name }}</div>
+              <div class="saved-route-card-detail">
+                <span v-if="getSavedRouteDist(route)">{{ getSavedRouteDist(route) }} mi</span>
+                <span v-if="route.equipment"> · {{ route.equipment === 'rigid' ? '🚣 Rigid' : '🎈 Inflatable' }}</span>
+                <span v-if="route.stops?.length > 2"> · {{ route.stops.length - 2 }} stop{{ route.stops.length - 2 > 1 ? 's' : '' }}</span>
+              </div>
+            </div>
+            <div class="saved-route-card-actions">
+              <button class="saved-route-action" @click="loadRoute(route)" title="Load">✏️</button>
+              <button class="saved-route-action" @click="deleteSavedRoute(route.id)" title="Delete">🗑️</button>
+            </div>
+          </div>
+        </div>
       </div>
     </div>
 
@@ -693,6 +799,91 @@ watch([startPointId, endPointId], () => {
   margin-top: 4px;
   border-top: 1px dashed var(--border);
   padding-top: 4px;
+}
+
+/* Route actions */
+.route-actions {
+  display: flex;
+  gap: 8px;
+  margin-top: 16px;
+}
+
+.route-action-btn {
+  flex: 1;
+  font-size: 13px;
+  padding: 10px 12px;
+}
+
+/* Saved routes section */
+.saved-routes-section {
+  margin-top: 24px;
+  padding-top: 16px;
+  border-top: 1px solid var(--border);
+}
+
+.saved-routes-section h3 {
+  font-size: 14px;
+  font-weight: 600;
+  margin-bottom: 10px;
+}
+
+.saved-routes-list {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.saved-route-card {
+  display: flex;
+  align-items: center;
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  overflow: hidden;
+}
+
+.saved-route-card-info {
+  flex: 1;
+  padding: 10px 12px;
+  cursor: pointer;
+  min-width: 0;
+}
+
+.saved-route-card-info:hover {
+  background: rgba(26, 107, 138, 0.05);
+}
+
+.saved-route-card-name {
+  font-size: 13px;
+  font-weight: 600;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.saved-route-card-detail {
+  font-size: 11px;
+  color: var(--text-light);
+  margin-top: 2px;
+}
+
+.saved-route-card-actions {
+  display: flex;
+  gap: 2px;
+  padding: 0 6px;
+}
+
+.saved-route-action {
+  background: none;
+  border: none;
+  cursor: pointer;
+  font-size: 14px;
+  padding: 4px 6px;
+  border-radius: 4px;
+}
+
+.saved-route-action:hover {
+  background: var(--border);
 }
 
 @media (max-width: 768px) {

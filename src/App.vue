@@ -31,12 +31,6 @@ const router = useRouter();
         </router-link>
       </li>
       <li>
-        <router-link to="/log">
-          <span class="nav-icon">📝</span>
-          <span>Log</span>
-        </router-link>
-      </li>
-      <li>
         <router-link to="/history">
           <span class="nav-icon">📊</span>
           <span>History</span>

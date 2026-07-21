@@ -1,5 +1,6 @@
 <script setup>
 import { ref, watch, computed, onMounted, onUnmounted } from 'vue';
+import { useRouter, useRoute } from 'vue-router';
 import ThamesMap from '../components/ThamesMap.vue';
 import { useGps } from '../composables/useGps.js';
 import { useTripRecorder } from '../composables/useTripRecorder.js';
@@ -12,6 +13,7 @@ import { nearestRoutePoint } from '../utils/river.js';
 import { extractExifGps } from '../utils/exif.js';
 
 const equipment = ref('all');
+const tripEquipment = ref('rigid'); // equipment for trip recording
 const showLocks = ref(true);
 const showAccess = ref(true);
 const showPubs = ref(true);
@@ -24,6 +26,7 @@ const showStartDialog = ref(false);
 const thamesMapRef = ref(null);
 const viewMode = ref('map'); // 'map' | 'dashboard'
 const destinationId = ref(null); // access point ID for destination
+const savedRoutes = ref([]);
 
 // Share menu
 const shareMenuOpen = ref(false);
@@ -53,6 +56,8 @@ const { units, toggleUnits, formatDist, formatDistShort, formatSpd } = useUnits(
 // Share
 const share = useShare();
 
+const mapRoute = useRoute();
+
 // Auto-start GPS when map opens
 onMounted(() => {
   if (!gps.tracking.value) {
@@ -60,6 +65,19 @@ onMounted(() => {
     gps.followMode.value = false;
   }
   checkinInterval = setInterval(updateCheckinDisplay, 1000);
+
+  // Handle startTrip query param from PlanView
+  if (mapRoute.query.startTrip === 'true') {
+    if (mapRoute.query.equipment) {
+      tripEquipment.value = mapRoute.query.equipment;
+      equipment.value = mapRoute.query.equipment;
+    }
+    if (mapRoute.query.destination) {
+      destinationId.value = mapRoute.query.destination;
+    }
+    // Show the start dialog so user can confirm
+    showStartDialog.value = true;
+  }
 });
 
 onUnmounted(() => {
@@ -343,7 +361,11 @@ async function handleCameraCapture(event) {
 }
 
 // Trip controls
-function showStart() {
+async function showStart() {
+  // Load saved routes for the start dialog
+  try {
+    savedRoutes.value = await db.savedRoutes.toArray();
+  } catch (e) { savedRoutes.value = []; }
   showStartDialog.value = true;
 }
 
@@ -354,6 +376,9 @@ async function handleStartTrip() {
   }
   gps.followMode.value = true;
 
+  // Sync map equipment filter with trip equipment
+  equipment.value = tripEquipment.value;
+
   // Set up check-in if enabled
   if (checkinEnabled.value) {
     checkinTime.value = Date.now() + checkinDuration.value * 60000;
@@ -361,7 +386,38 @@ async function handleStartTrip() {
     checkinTime.value = null;
   }
 
-  await recorder.startTrip({ equipment: equipment.value });
+  await recorder.startTrip({ equipment: tripEquipment.value });
+}
+
+function handleStartOpenPaddle() {
+  destinationId.value = null;
+  handleStartTrip();
+}
+
+function handleStartFromSaved(route) {
+  // Use the last stop as destination
+  if (route.stops?.length >= 2) {
+    destinationId.value = route.stops[route.stops.length - 1];
+    tripEquipment.value = route.equipment || tripEquipment.value;
+  }
+  handleStartTrip();
+}
+
+function getRouteName(route) {
+  if (route.name) return route.name;
+  const stops = (route.stops || []).map(id => accessPoints.find(a => a.id === id));
+  if (stops.length >= 2 && stops[0] && stops[stops.length - 1]) {
+    return `${stops[0].name} → ${stops[stops.length - 1].name}`;
+  }
+  return 'Saved Route';
+}
+
+function getRouteDist(route) {
+  const stops = (route.stops || []).map(id => accessPoints.find(a => a.id === id)).filter(Boolean);
+  if (stops.length >= 2) {
+    return Math.abs(stops[stops.length - 1].riverMile - stops[0].riverMile).toFixed(1);
+  }
+  return null;
 }
 
 async function handlePauseTrip() {
@@ -680,8 +736,23 @@ function handleDismissFinished() {
 
     <!-- Start trip dialog -->
     <div v-if="showStartDialog" class="confirm-overlay">
-      <div class="confirm-dialog card">
+      <div class="confirm-dialog card" style="max-width:360px">
         <h3>Start Trip</h3>
+
+        <!-- Equipment selector -->
+        <div class="form-group">
+          <label class="form-label">Equipment</label>
+          <div class="equipment-toggle">
+            <button class="equipment-btn" :class="{ active: tripEquipment === 'rigid' }" @click="tripEquipment = 'rigid'">
+              <span class="eq-icon">🚣</span><span class="eq-label">Rigid</span>
+            </button>
+            <button class="equipment-btn" :class="{ active: tripEquipment === 'inflatable' }" @click="tripEquipment = 'inflatable'">
+              <span class="eq-icon">🎈</span><span class="eq-label">Inflatable</span>
+            </button>
+          </div>
+        </div>
+
+        <!-- Destination -->
         <div class="form-group">
           <label class="form-label">Destination (optional)</label>
           <select v-model="destinationId" class="form-select">
@@ -690,6 +761,23 @@ function handleDismissFinished() {
               {{ ap.name }}
             </option>
           </select>
+        </div>
+
+        <!-- Saved routes -->
+        <div v-if="savedRoutes.length" class="start-saved-routes">
+          <label class="form-label">Saved Routes</label>
+          <div class="saved-routes-list">
+            <div v-for="route in savedRoutes" :key="route.id" class="saved-route-item" @click="handleStartFromSaved(route)">
+              <div class="saved-route-icon">📍</div>
+              <div class="saved-route-info">
+                <div class="saved-route-name">{{ getRouteName(route) }}</div>
+                <div class="saved-route-detail">
+                  <span v-if="getRouteDist(route)">{{ getRouteDist(route) }} mi</span>
+                  <span v-if="route.stops">· {{ route.stops.length - 2 > 0 ? (route.stops.length - 2) + ' stop' + (route.stops.length - 2 > 1 ? 's' : '') : '' }}</span>
+                </div>
+              </div>
+            </div>
+          </div>
         </div>
 
         <!-- Safety check-in -->
@@ -716,7 +804,8 @@ function handleDismissFinished() {
         </div>
 
         <div class="confirm-buttons">
-          <button class="btn btn-primary" style="background:var(--success)" @click="handleStartTrip">▶ Start Recording</button>
+          <button class="btn btn-primary" style="background:var(--success)" @click="handleStartTrip">▶ Start with Destination</button>
+          <button class="btn btn-primary" style="background:var(--primary)" @click="handleStartOpenPaddle">🛶 Open Paddle</button>
           <button class="btn btn-outline" @click="showStartDialog = false">Cancel</button>
         </div>
       </div>
@@ -1357,6 +1446,46 @@ function handleDismissFinished() {
   text-align: left;
   margin-bottom: 16px;
 }
+
+/* ===== Start dialog equipment & saved routes ===== */
+.start-saved-routes {
+  text-align: left;
+  margin-bottom: 12px;
+}
+
+.saved-routes-list {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin-top: 6px;
+}
+
+.saved-route-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 10px;
+  border-radius: var(--radius-sm);
+  background: var(--bg);
+  cursor: pointer;
+  border: 1px solid var(--border);
+  transition: background 0.15s;
+}
+
+.saved-route-item:hover {
+  background: var(--primary);
+  color: #fff;
+  border-color: var(--primary);
+}
+
+.saved-route-item:hover .saved-route-detail {
+  color: rgba(255,255,255,0.8);
+}
+
+.saved-route-icon { font-size: 16px; flex-shrink: 0; }
+.saved-route-info { flex: 1; min-width: 0; }
+.saved-route-name { font-size: 13px; font-weight: 600; }
+.saved-route-detail { font-size: 11px; color: var(--text-light); }
 
 /* ===== Check-in in start dialog ===== */
 .checkin-row {

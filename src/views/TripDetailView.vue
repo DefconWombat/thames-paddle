@@ -5,6 +5,7 @@ import ThamesMap from '../components/ThamesMap.vue';
 import { db } from '../data/db.js';
 import { accessPoints } from '../data/access-points.js';
 import { locks } from '../data/thames-locks.js';
+import { pubsCafes } from '../data/pubs-cafes.js';
 import { formatDistance, formatDuration, formatSpeed } from '../utils/river.js';
 import { generateGpx } from '../utils/gpx.js';
 import { useShare } from '../composables/useShare.js';
@@ -21,6 +22,7 @@ const photos = ref([]);
 const lightboxPhoto = ref(null);
 const photoInput = ref(null);
 const share = useShare();
+const expandedLegs = ref(new Set([0])); // First leg expanded by default
 
 onMounted(async () => {
   trip.value = await db.trips.get(Number(props.id));
@@ -46,12 +48,189 @@ function getPoint(id) {
 const startPoint = computed(() => getPoint(trip.value?.startPointId));
 const endPoint = computed(() => getPoint(trip.value?.endPointId));
 
+// Direction of travel
+const direction = computed(() => {
+  if (!startPoint.value || !endPoint.value) return null;
+  const downstream = endPoint.value.riverMile > startPoint.value.riverMile;
+  // Calculate rough compass direction from track or from start/end points
+  let heading = null;
+  if (trip.value?.recordedTrack?.length > 1) {
+    const first = trip.value.recordedTrack[0];
+    const last = trip.value.recordedTrack[trip.value.recordedTrack.length - 1];
+    const dLat = last.lat - first.lat;
+    const dLng = last.lng - first.lng;
+    const deg = (Math.atan2(dLng, dLat) * 180 / Math.PI + 360) % 360;
+    const dirs = ['N', 'NE', 'E', 'SE', 'S', 'SW', 'W', 'NW'];
+    heading = dirs[Math.round(deg / 45) % 8];
+  }
+  return {
+    downstream,
+    label: downstream ? 'Downstream' : 'Upstream',
+    icon: downstream ? '⬇️' : '⬆️',
+    heading
+  };
+});
+
 const routeLocks = computed(() => {
   if (!startPoint.value || !endPoint.value) return [];
   const lo = Math.min(startPoint.value.riverMile, endPoint.value.riverMile);
   const hi = Math.max(startPoint.value.riverMile, endPoint.value.riverMile);
   return locks.filter(l => l.riverMile >= lo && l.riverMile <= hi);
 });
+
+// Time breakdown
+const timeBreakdown = computed(() => {
+  if (!trip.value) return null;
+  const totalMs = trip.value.totalTimeMs || 0;
+  if (!totalMs) return null;
+
+  // Calculate lock time (estimate ~15 min per lock traversed)
+  const numLocks = routeLocks.value.length;
+  const lockMs = numLocks * 15 * 60 * 1000; // 15 min per lock
+
+  // Calculate pause/stopped time
+  let pauseMs = 0;
+  if (trip.value.pauseLog?.length) {
+    for (const p of trip.value.pauseLog) {
+      if (p.pausedAt && p.resumedAt) {
+        pauseMs += new Date(p.resumedAt) - new Date(p.pausedAt);
+      }
+    }
+  }
+
+  // Paddle time = total - locks - pauses
+  const paddleMs = Math.max(0, totalMs - lockMs - pauseMs);
+
+  const paddlePct = totalMs > 0 ? Math.round((paddleMs / totalMs) * 100) : 0;
+  const lockPct = totalMs > 0 ? Math.round((lockMs / totalMs) * 100) : 0;
+  const pausePct = totalMs > 0 ? 100 - paddlePct - lockPct : 0;
+
+  return {
+    paddleMs,
+    paddlePct,
+    lockMs,
+    lockPct,
+    numLocks,
+    pauseMs,
+    pausePct
+  };
+});
+
+// Build legs from pause log and locks
+const tripLegs = computed(() => {
+  if (!trip.value || !startPoint.value || !endPoint.value) return [];
+
+  const lo = Math.min(startPoint.value.riverMile, endPoint.value.riverMile);
+  const hi = Math.max(startPoint.value.riverMile, endPoint.value.riverMile);
+  const downstream = endPoint.value.riverMile > startPoint.value.riverMile;
+
+  // Get locks along route in order of travel
+  const legLocks = locks
+    .filter(l => l.riverMile > lo && l.riverMile < hi)
+    .sort((a, b) => downstream ? a.riverMile - b.riverMile : b.riverMile - a.riverMile);
+
+  // Get pubs/cafes along route
+  const legPubs = pubsCafes
+    .filter(p => p.riverMile >= lo && p.riverMile <= hi)
+    .sort((a, b) => downstream ? a.riverMile - b.riverMile : b.riverMile - a.riverMile);
+
+  if (legLocks.length === 0) {
+    // Single leg - start to end
+    return [{
+      num: 1,
+      from: startPoint.value,
+      to: endPoint.value,
+      distance: Math.abs(endPoint.value.riverMile - startPoint.value.riverMile),
+      locks: 0,
+      stops: legPubs.slice(0, 3).map(p => ({
+        type: p.type === 'cafe' ? 'cafe' : 'pub',
+        name: p.name,
+        mile: p.riverMile
+      })),
+      expanded: expandedLegs.value.has(0)
+    }];
+  }
+
+  // Build legs between locks
+  const result = [];
+  let prevPoint = startPoint.value;
+  let prevMile = startPoint.value.riverMile;
+
+  legLocks.forEach((lock, idx) => {
+    const dist = Math.abs(lock.riverMile - prevMile);
+    const legLo = Math.min(prevMile, lock.riverMile);
+    const legHi = Math.max(prevMile, lock.riverMile);
+    const legStops = [];
+
+    // Add the lock as a stop
+    legStops.push({
+      type: 'lock',
+      name: lock.name,
+      mile: lock.riverMile,
+      detail: `Portage ${lock.portage} bank`
+    });
+
+    // Add pubs along this leg
+    legPubs
+      .filter(p => p.riverMile > legLo && p.riverMile < legHi)
+      .forEach(p => {
+        legStops.push({
+          type: p.type === 'cafe' ? 'cafe' : 'pub',
+          name: p.name,
+          mile: p.riverMile
+        });
+      });
+
+    result.push({
+      num: idx + 1,
+      from: prevPoint,
+      to: { name: lock.name, riverMile: lock.riverMile },
+      distance: dist,
+      locks: 1,
+      stops: legStops,
+      expanded: expandedLegs.value.has(idx)
+    });
+
+    prevPoint = { name: lock.name, riverMile: lock.riverMile };
+    prevMile = lock.riverMile;
+  });
+
+  // Final leg from last lock to end
+  const finalDist = Math.abs(endPoint.value.riverMile - prevMile);
+  const finalLo = Math.min(prevMile, endPoint.value.riverMile);
+  const finalHi = Math.max(prevMile, endPoint.value.riverMile);
+  const finalStops = legPubs
+    .filter(p => p.riverMile > finalLo && p.riverMile < finalHi)
+    .map(p => ({
+      type: p.type === 'cafe' ? 'cafe' : 'pub',
+      name: p.name,
+      mile: p.riverMile
+    }));
+
+  result.push({
+    num: legLocks.length + 1,
+    from: prevPoint,
+    to: endPoint.value,
+    distance: finalDist,
+    locks: 0,
+    stops: finalStops,
+    expanded: expandedLegs.value.has(legLocks.length)
+  });
+
+  return result;
+});
+
+function toggleLeg(index) {
+  if (expandedLegs.value.has(index)) {
+    expandedLegs.value.delete(index);
+  } else {
+    expandedLegs.value.add(index);
+  }
+  // Force reactivity
+  expandedLegs.value = new Set(expandedLegs.value);
+}
+
+const stopIcons = { lock: '🔒', pub: '🍺', cafe: '☕', camp: '⛺', access: '🛶' };
 
 function exportGpx() {
   if (!trip.value?.recordedTrack?.length) return;
@@ -153,25 +332,81 @@ async function handlePhotoUpload(event) {
       </h2>
 
       <span class="badge" :class="trip.equipmentType === 'rigid' ? 'badge-rigid' : 'badge-inflatable'" style="margin-bottom:16px">
-        {{ trip.equipmentType === 'rigid' ? '🚣 Rigid Hull' : '🎈 Inflatable' }}
+        {{ trip.equipmentType === 'rigid' ? '🚣 Rigid kayak' : '🎈 Inflatable kayak' }}
       </span>
 
-      <div class="stats-grid" style="margin: 16px 0">
-        <div class="stat-tile" v-if="trip.actualDistanceMiles">
-          <div class="stat-value">{{ trip.actualDistanceMiles.toFixed(1) }}</div>
-          <div class="stat-label">Miles</div>
+      <!-- Trip Overview -->
+      <div class="section">
+        <h3>📊 Trip Overview</h3>
+        <div class="stats-grid" style="margin: 8px 0">
+          <div class="stat-tile highlight" v-if="trip.actualDistanceMiles">
+            <div class="stat-value">{{ trip.actualDistanceMiles.toFixed(1) }} mi</div>
+            <div class="stat-label">Distance</div>
+          </div>
+          <div class="stat-tile highlight" v-if="trip.totalTimeMs">
+            <div class="stat-value">{{ formatDuration(trip.totalTimeMs) }}</div>
+            <div class="stat-label">Total Time</div>
+          </div>
+          <div class="stat-tile" v-if="direction?.heading">
+            <div class="stat-value">{{ direction.heading }}</div>
+            <div class="stat-label">Direction</div>
+          </div>
+          <div class="stat-tile" v-if="trip.avgSpeedMph">
+            <div class="stat-value">{{ trip.avgSpeedMph.toFixed(1) }} mph</div>
+            <div class="stat-label">Avg Speed</div>
+          </div>
+          <div class="stat-tile" v-if="trip.maxSpeedMph">
+            <div class="stat-value">{{ trip.maxSpeedMph.toFixed(1) }} mph</div>
+            <div class="stat-label">Top Speed</div>
+          </div>
+          <div class="stat-tile" v-if="routeLocks.length">
+            <div class="stat-value">{{ routeLocks.length }}</div>
+            <div class="stat-label">Locks</div>
+          </div>
         </div>
-        <div class="stat-tile" v-if="trip.totalTimeMs">
-          <div class="stat-value">{{ formatDuration(trip.totalTimeMs) }}</div>
-          <div class="stat-label">Total Time</div>
+
+        <!-- Time breakdown -->
+        <div v-if="timeBreakdown" class="time-breakdown">
+          <div class="time-tile">
+            <div class="time-tile-value" style="color:var(--primary)">{{ formatDuration(timeBreakdown.paddleMs) }}</div>
+            <div class="time-tile-label">Paddling ({{ timeBreakdown.paddlePct }}%)</div>
+          </div>
+          <div class="time-tile" v-if="timeBreakdown.numLocks > 0">
+            <div class="time-tile-value" style="color:#e67e22">{{ formatDuration(timeBreakdown.lockMs) }}</div>
+            <div class="time-tile-label">Locks ({{ timeBreakdown.lockPct }}%)</div>
+          </div>
+          <div class="time-tile" v-if="timeBreakdown.pauseMs > 0">
+            <div class="time-tile-value" style="color:#95a5a6">{{ formatDuration(timeBreakdown.pauseMs) }}</div>
+            <div class="time-tile-label">Stopped ({{ timeBreakdown.pausePct }}%)</div>
+          </div>
         </div>
-        <div class="stat-tile" v-if="trip.movingTimeMs && trip.movingTimeMs !== trip.totalTimeMs">
-          <div class="stat-value">{{ formatDuration(trip.movingTimeMs) }}</div>
-          <div class="stat-label">Moving Time</div>
-        </div>
-        <div class="stat-tile" v-if="trip.avgSpeedMph">
-          <div class="stat-value">{{ trip.avgSpeedMph.toFixed(1) }}</div>
-          <div class="stat-label">Avg MPH</div>
+      </div>
+
+      <!-- Legs & Stops -->
+      <div v-if="tripLegs.length > 0" class="section">
+        <h3>🦵 Legs & Stops</h3>
+        <div v-for="(leg, idx) in tripLegs" :key="idx" class="td-leg">
+          <div class="td-leg-header" @click="toggleLeg(idx)">
+            <span class="td-leg-num">Leg {{ leg.num }}</span>
+            <span class="td-leg-route">{{ leg.from.name }} → {{ leg.to.name }}</span>
+            <span class="td-leg-time">{{ leg.distance.toFixed(1) }} mi</span>
+            <span class="td-leg-chevron" :class="{ open: expandedLegs.has(idx) }">▸</span>
+          </div>
+          <div v-if="expandedLegs.has(idx)" class="td-leg-body">
+            <div v-if="leg.locks > 0" class="td-leg-detail">
+              🔒 {{ leg.locks }} lock{{ leg.locks > 1 ? 's' : '' }}
+            </div>
+            <div v-for="(stop, si) in leg.stops" :key="si" class="td-stop">
+              <span class="td-stop-icon">{{ stopIcons[stop.type] || '📍' }}</span>
+              <div class="td-stop-info">
+                <div class="td-stop-name">{{ stop.name }}</div>
+                <div class="td-stop-detail" v-if="stop.detail || stop.mile">
+                  <span v-if="stop.mile">Mile {{ stop.mile.toFixed(1) }}</span>
+                  <span v-if="stop.detail"> · {{ stop.detail }}</span>
+                </div>
+              </div>
+            </div>
+          </div>
         </div>
       </div>
 
@@ -182,20 +417,6 @@ async function handlePhotoUpload(event) {
           ☕ {{ new Date(pause.pausedAt).toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' }) }}
           – {{ new Date(pause.resumedAt).toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' }) }}
         </div>
-      </div>
-
-      <!-- Locks passed -->
-      <div v-if="routeLocks.length" class="section">
-        <h3>Locks ({{ routeLocks.length }})</h3>
-        <ul class="poi-list">
-          <li v-for="lock in routeLocks" :key="lock.id" class="poi-item">
-            <span class="poi-icon lock">🔒</span>
-            <div>
-              <div class="poi-name">{{ lock.name }}</div>
-              <div class="poi-detail">Portage: {{ lock.portage }} bank</div>
-            </div>
-          </li>
-        </ul>
       </div>
 
       <!-- Photos -->
@@ -323,6 +544,135 @@ async function handlePhotoUpload(event) {
   margin-bottom: 8px;
 }
 
+.stat-tile.highlight .stat-value {
+  color: var(--primary);
+  font-size: 16px;
+}
+
+/* ===== Time breakdown ===== */
+.time-breakdown {
+  display: flex;
+  gap: 6px;
+  margin-top: 10px;
+  flex-wrap: wrap;
+}
+
+.time-tile {
+  flex: 1;
+  min-width: 80px;
+  background: var(--bg);
+  border-radius: var(--radius-sm);
+  padding: 8px 10px;
+  text-align: center;
+  box-shadow: var(--shadow);
+}
+
+.time-tile-value {
+  font-size: 14px;
+  font-weight: 700;
+}
+
+.time-tile-label {
+  font-size: 11px;
+  color: var(--text-light);
+  margin-top: 2px;
+}
+
+/* ===== Legs ===== */
+.td-leg {
+  margin-bottom: 6px;
+  border-radius: var(--radius-sm);
+  overflow: hidden;
+  border: 1px solid var(--border);
+}
+
+.td-leg-header {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 10px 12px;
+  cursor: pointer;
+  background: var(--bg);
+  transition: background 0.15s;
+}
+
+.td-leg-header:hover {
+  background: var(--border);
+}
+
+.td-leg-num {
+  font-size: 11px;
+  font-weight: 700;
+  color: var(--primary);
+  text-transform: uppercase;
+  white-space: nowrap;
+}
+
+.td-leg-route {
+  flex: 1;
+  font-size: 12px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.td-leg-time {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--text);
+  white-space: nowrap;
+}
+
+.td-leg-chevron {
+  font-size: 12px;
+  color: var(--text-light);
+  transition: transform 0.2s;
+}
+
+.td-leg-chevron.open {
+  transform: rotate(90deg);
+}
+
+.td-leg-body {
+  padding: 8px 12px;
+  border-top: 1px solid var(--border);
+}
+
+.td-leg-detail {
+  font-size: 12px;
+  color: var(--text-light);
+  margin-bottom: 6px;
+}
+
+.td-stop {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  padding: 4px 0;
+}
+
+.td-stop-icon {
+  font-size: 14px;
+  flex-shrink: 0;
+  margin-top: 1px;
+}
+
+.td-stop-info {
+  flex: 1;
+  min-width: 0;
+}
+
+.td-stop-name {
+  font-size: 12px;
+  font-weight: 500;
+}
+
+.td-stop-detail {
+  font-size: 11px;
+  color: var(--text-light);
+}
+
+/* ===== Pause entries ===== */
 .pause-entry {
   font-size: 13px;
   color: var(--text-light);

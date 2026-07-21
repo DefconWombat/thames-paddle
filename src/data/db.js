@@ -15,6 +15,14 @@ db.version(2).stores({
   photos: '++id, tripId, timestamp'
 });
 
+db.version(3).stores({
+  trips: '++id, date, startPointId, endPointId, equipmentType, status',
+  customPoi: '++id, type, lat, lng',
+  settings: 'key',
+  photos: '++id, tripId, timestamp',
+  savedRoutes: '++id, name, created'
+});
+
 /**
  * Trip schema:
  * {

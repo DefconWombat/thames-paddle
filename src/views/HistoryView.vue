@@ -8,6 +8,7 @@ import { formatDistance, formatDuration, formatSpeed } from '../utils/river.js';
 const router = useRouter();
 const trips = ref([]);
 const sortBy = ref('date');
+const showAddTrip = ref(false);
 
 onMounted(async () => {
   trips.value = await db.trips.orderBy('date').reverse().toArray();
@@ -65,7 +66,12 @@ async function deleteTrip(id, event) {
 <template>
   <div class="history-view">
     <div class="history-container">
-      <h2>Trip History</h2>
+      <div class="history-header">
+        <h2>Trip History</h2>
+        <button class="btn btn-primary btn-sm" @click="router.push('/log')">
+          + Add Trip
+        </button>
+      </div>
 
       <!-- Overall stats -->
       <div v-if="stats" class="stats-grid" style="margin-bottom: 24px">
@@ -127,6 +133,7 @@ async function deleteTrip(id, event) {
             <span v-if="trip.actualDistanceMiles">📏 {{ trip.actualDistanceMiles.toFixed(1) }} mi</span>
             <span v-if="trip.movingTimeMs">⏱️ {{ formatDuration(trip.movingTimeMs) }}</span>
             <span v-if="trip.avgSpeedMph">🏃 {{ trip.avgSpeedMph.toFixed(1) }} mph</span>
+            <span v-if="trip.notes" class="trip-has-notes" title="Has notes">📝</span>
             <button class="btn btn-sm" style="margin-left:auto;padding:4px 8px;font-size:11px;color:var(--danger)" @click="deleteTrip(trip.id, $event)">🗑️</button>
           </div>
         </div>
@@ -135,8 +142,8 @@ async function deleteTrip(id, event) {
       <div v-else class="empty-state">
         <div class="empty-icon">📝</div>
         <h3>No trips yet</h3>
-        <p>Log your first paddle to start tracking your progress.</p>
-        <router-link to="/log" class="btn btn-primary" style="margin-top:16px">Log a Trip</router-link>
+        <p>Start recording a trip from the map, or manually log one.</p>
+        <button class="btn btn-primary" style="margin-top:16px" @click="router.push('/log')">+ Add Trip</button>
       </div>
     </div>
   </div>
@@ -154,6 +161,17 @@ async function deleteTrip(id, event) {
   margin: 0 auto;
 }
 
+.history-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 16px;
+}
+
+.history-header h2 {
+  margin: 0;
+}
+
 .records-section {
   margin-bottom: 24px;
 }
@@ -166,5 +184,9 @@ async function deleteTrip(id, event) {
 
 .trips-list {
   margin-top: 16px;
+}
+
+.trip-has-notes {
+  font-size: 12px;
 }
 </style>

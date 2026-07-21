@@ -140,7 +140,10 @@ async function saveTrip() {
 <template>
   <div class="log-view">
     <div class="log-container">
-      <h2>Log a Trip</h2>
+      <div class="log-header">
+        <button class="btn btn-sm btn-outline" @click="router.push('/history')">← Back to History</button>
+        <h2>Add Trip</h2>
+      </div>
 
       <div class="form-group">
         <label class="form-label">Equipment Used</label>
@@ -239,7 +242,7 @@ async function saveTrip() {
 
       <div class="form-group">
         <label class="form-label">Notes</label>
-        <textarea class="form-textarea" v-model="notes" placeholder="Weather, conditions, highlights..."></textarea>
+        <textarea class="form-textarea" v-model="notes" placeholder="Weather, conditions, highlights, wildlife spotted..."></textarea>
       </div>
 
       <!-- Trip summary preview -->
@@ -287,6 +290,17 @@ async function saveTrip() {
 .log-container {
   max-width: 600px;
   margin: 0 auto;
+}
+
+.log-header {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 16px;
+}
+
+.log-header h2 {
+  margin: 0;
 }
 
 .form-row {
