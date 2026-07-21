@@ -501,16 +501,7 @@ function handleDismissFinished() {
           <div class="dash-speed-label">Current Speed</div>
         </div>
 
-        <!-- Compass tile -->
-        <div v-if="gps.position.value" class="dash-compass-tile">
-          <div class="compass-rose" :style="{ transform: `rotate(${gps.position.value.heading || 0}deg)` }">↑</div>
-          <div class="compass-info">
-            <div class="compass-heading">{{ compassDirection(gps.position.value.heading) }}</div>
-            <div v-if="gps.position.value.heading != null" class="compass-degrees">{{ Math.round(gps.position.value.heading) }}°</div>
-          </div>
-        </div>
-
-        <!-- Stats grid -->
+        <!-- Stats grid with compass -->
         <div class="dash-grid">
           <div class="dash-tile">
             <div class="dash-tile-value">{{ recorder.status.value !== 'idle' ? recorder.stats.value.elapsedFormatted : '—' }}</div>
@@ -519,6 +510,11 @@ function handleDismissFinished() {
           <div class="dash-tile">
             <div class="dash-tile-value">{{ recorder.status.value !== 'idle' ? formatDist(recorder.stats.value.distance) : '—' }}</div>
             <div class="dash-tile-label">Distance</div>
+          </div>
+          <div class="dash-compass">
+            <span class="dash-compass-arrow" :style="{ transform: `rotate(${gps.position.value?.heading || 0}deg)` }">↑</span>
+            <span class="dash-compass-dir">{{ compassDirection(gps.position.value?.heading) }}</span>
+            <span v-if="gps.position.value?.heading != null" class="dash-compass-deg">{{ Math.round(gps.position.value.heading) }}°</span>
           </div>
           <div class="dash-tile">
             <div class="dash-tile-value">{{ recorder.status.value !== 'idle' ? formatSpd(recorder.stats.value.avgSpeed) : '—' }}</div>
@@ -548,20 +544,12 @@ function handleDismissFinished() {
             <span class="dash-row-label">🔒 Next Lock</span>
             <span class="dash-row-value">{{ nextLock.name }} <span class="dash-row-sub">({{ formatDistShort(nextLock.distanceMiles) }})</span></span>
           </div>
-          <div class="dash-row" v-if="nearestLandmark">
-            <span class="dash-row-label">📍 Near</span>
-            <span class="dash-row-value">{{ nearestLandmark.name }}</span>
-          </div>
           <div class="dash-row" v-if="distToDestination">
             <span class="dash-row-label">🏁 To {{ distToDestination.name }}</span>
             <span class="dash-row-value">
               {{ formatDist(distToDestination.distanceMiles) }}
               <span v-if="etaToDestination" class="dash-row-sub">(ETA {{ etaToDestination }})</span>
             </span>
-          </div>
-          <div class="dash-row" v-if="gps.position.value?.accuracy">
-            <span class="dash-row-label">📡 GPS Accuracy</span>
-            <span class="dash-row-value">±{{ Math.round(gps.position.value.accuracy) }}m</span>
           </div>
         </div>
 
@@ -946,18 +934,20 @@ function handleDismissFinished() {
 }
 
 .dash-content {
-  padding: 16px;
+  padding: 12px;
+  padding-left: max(12px, env(safe-area-inset-left, 0));
+  padding-right: max(12px, env(safe-area-inset-right, 0));
   max-width: 420px;
   margin: 0 auto;
 }
 
 .dash-hero {
   text-align: center;
-  padding: 24px 0 20px;
+  padding: 14px 0 12px;
 }
 
 .dash-speed-value {
-  font-size: 56px;
+  font-size: 48px;
   font-weight: 800;
   color: var(--primary);
   line-height: 1;
@@ -965,58 +955,55 @@ function handleDismissFinished() {
 }
 
 .dash-speed-label {
-  font-size: 13px;
+  font-size: 12px;
   text-transform: uppercase;
   letter-spacing: 1px;
   color: var(--text-light);
-  margin-top: 4px;
+  margin-top: 2px;
   font-weight: 600;
 }
 
-/* ===== Compass tile ===== */
-.dash-compass-tile {
+/* ===== Compass (inline in grid) ===== */
+.dash-compass {
+  grid-row: 1 / 3;
+  grid-column: 3;
   background: var(--card-bg);
   border-radius: var(--radius);
   box-shadow: var(--shadow);
-  padding: 16px;
   display: flex;
-  align-items: center;
-  gap: 16px;
-  margin-bottom: 12px;
-}
-
-.compass-rose {
-  font-size: 36px;
-  font-weight: 800;
-  color: var(--primary);
-  transition: transform 0.3s ease;
-  width: 48px;
-  height: 48px;
-  display: flex;
+  flex-direction: column;
   align-items: center;
   justify-content: center;
-  background: var(--bg);
-  border-radius: 50%;
+  padding: 8px 14px;
+  min-width: 64px;
 }
 
-.compass-info { flex: 1; }
-
-.compass-heading {
-  font-size: 20px;
+.dash-compass-arrow {
+  font-size: 36px;
   font-weight: 700;
-  color: var(--text);
+  color: var(--primary);
+  line-height: 1;
+  transition: transform 0.3s ease;
+  display: block;
 }
 
-.compass-degrees {
-  font-size: 13px;
+.dash-compass-dir {
+  font-size: 14px;
+  font-weight: 700;
+  margin-top: 2px;
+}
+
+.dash-compass-deg {
+  font-size: 10px;
   color: var(--text-light);
+  font-weight: 500;
 }
 
 .dash-grid {
   display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 10px;
-  margin-bottom: 16px;
+  grid-template-columns: 1fr 1fr auto;
+  gap: 8px;
+  margin-bottom: 12px;
 }
 
 .dash-tile {
@@ -1615,5 +1602,28 @@ function handleDismissFinished() {
   }
 
   .dash-speed-value { font-size: 48px; }
+}
+
+/* Landscape — iPhone 15 Pro Max and similar */
+@media (orientation: landscape) and (max-height: 500px) {
+  .dash-content {
+    max-width: 100%;
+    display: flex;
+    flex-wrap: wrap;
+    gap: 10px;
+    align-items: flex-start;
+    padding: 8px 16px;
+  }
+  .dash-hero { flex: 0 0 140px; padding: 8px 0; }
+  .dash-speed-value { font-size: 36px; }
+  .dash-grid { flex: 1; min-width: 260px; gap: 6px; margin-bottom: 0; }
+  .dash-tile { padding: 8px 6px; }
+  .dash-tile-value { font-size: 16px; }
+  .dash-compass { padding: 6px 10px; min-width: 54px; }
+  .dash-compass-arrow { font-size: 28px; }
+  .dash-section { flex: 1; min-width: 180px; margin-bottom: 0; }
+  .dash-row { padding: 6px 10px; }
+  .dash-checkin { flex: 1; min-width: 180px; margin-bottom: 0; }
+  .dash-footer { flex: 0 0 100%; padding: 4px 0 6px; }
 }
 </style>
