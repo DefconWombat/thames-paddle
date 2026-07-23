@@ -210,6 +210,65 @@ body {
   margin-bottom: 12px;
 }
 
+/* ===== Journal / Log entries ===== */
+.log-entry {
+  padding: 10px 0;
+  border-bottom: 1px solid var(--border);
+}
+
+.log-entry:last-child {
+  border-bottom: none;
+}
+
+.log-time {
+  font-size: 10px;
+  color: var(--text-light);
+}
+
+.log-text {
+  font-size: 13px;
+  margin-top: 3px;
+}
+
+.log-input-row {
+  display: flex;
+  gap: 8px;
+  margin-top: 12px;
+}
+
+.log-input {
+  flex: 1;
+  padding: 8px 10px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  font-size: 13px;
+  font-family: inherit;
+  color: var(--text);
+  background: var(--card-bg);
+}
+
+.log-input:focus {
+  outline: none;
+  border-color: var(--primary);
+  box-shadow: 0 0 0 3px var(--primary-light);
+}
+
+.log-add-btn {
+  padding: 8px 16px;
+  background: var(--primary);
+  color: white;
+  border: none;
+  border-radius: var(--radius);
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background 0.15s;
+}
+
+.log-add-btn:hover {
+  background: var(--primary-dark);
+}
+
 /* ===== Forms ===== */
 .form-group {
   margin-bottom: 12px;
