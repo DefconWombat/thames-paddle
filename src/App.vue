@@ -1,16 +1,30 @@
 <script setup>
-import { ref } from 'vue';
-import { useRouter } from 'vue-router';
+import { ref, onMounted, onUnmounted } from 'vue';
 
-const router = useRouter();
+const isOffline = ref(!navigator.onLine);
+
+function handleOnline() { isOffline.value = false; }
+function handleOffline() { isOffline.value = true; }
+
+onMounted(() => {
+  window.addEventListener('online', handleOnline);
+  window.addEventListener('offline', handleOffline);
+});
+
+onUnmounted(() => {
+  window.removeEventListener('online', handleOnline);
+  window.removeEventListener('offline', handleOffline);
+});
 </script>
 
 <template>
+  <div class="offline-banner" v-if="isOffline">📡 Offline — using cached data</div>
+
+  <main class="main-content">
+    <router-view />
+  </main>
+
   <nav class="app-nav">
-    <div class="app-logo">
-      <span class="logo-icon">🛶</span>
-      <span>Thames Paddle</span>
-    </div>
     <ul class="nav-links">
       <li>
         <router-link to="/">
@@ -26,14 +40,20 @@ const router = useRouter();
       </li>
       <li>
         <router-link to="/plan">
-          <span class="nav-icon">📍</span>
+          <span class="nav-icon">📋</span>
           <span>Plan</span>
         </router-link>
       </li>
       <li>
         <router-link to="/conditions">
-          <span class="nav-icon">🌊</span>
+          <span class="nav-icon">🌤️</span>
           <span>Conditions</span>
+        </router-link>
+      </li>
+      <li>
+        <router-link to="/log">
+          <span class="nav-icon">📝</span>
+          <span>Log</span>
         </router-link>
       </li>
       <li>
@@ -44,8 +64,4 @@ const router = useRouter();
       </li>
     </ul>
   </nav>
-
-  <main class="main-content">
-    <router-view />
-  </main>
 </template>

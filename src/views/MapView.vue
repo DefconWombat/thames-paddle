@@ -741,13 +741,10 @@ function handleDismissFinished() {
         <!-- Equipment selector -->
         <div class="form-group">
           <label class="form-label">Equipment</label>
-          <div class="equipment-toggle">
-            <button class="equipment-btn" :class="{ active: tripEquipment === 'rigid' }" @click="tripEquipment = 'rigid'">
-              <span class="eq-icon">🚣</span><span class="eq-label">Rigid</span>
-            </button>
-            <button class="equipment-btn" :class="{ active: tripEquipment === 'inflatable' }" @click="tripEquipment = 'inflatable'">
-              <span class="eq-icon">🎈</span><span class="eq-label">Inflatable</span>
-            </button>
+          <div class="eq-toggle">
+            <button class="eq-btn" :class="{ active: tripEquipment === 'all' }" @click="tripEquipment = 'all'">🛶 All</button>
+            <button class="eq-btn" :class="{ active: tripEquipment === 'rigid' }" @click="tripEquipment = 'rigid'">🚣 Rigid</button>
+            <button class="eq-btn" :class="{ active: tripEquipment === 'inflatable' }" @click="tripEquipment = 'inflatable'">🎈 Inflatable</button>
           </div>
         </div>
 
@@ -832,28 +829,18 @@ function handleDismissFinished() {
       <div v-if="showFilters" class="filter-panel card">
         <div class="form-group">
           <label class="form-label">Equipment</label>
-          <div class="equipment-toggle">
-            <button class="equipment-btn" :class="{ active: equipment === 'all' }" @click="equipment = 'all'">
-              <span class="eq-icon">🛶</span><span class="eq-label">All</span>
-            </button>
-            <button class="equipment-btn" :class="{ active: equipment === 'rigid' }" @click="equipment = 'rigid'">
-              <span class="eq-icon">🚣</span><span class="eq-label">Rigid</span>
-            </button>
-            <button class="equipment-btn" :class="{ active: equipment === 'inflatable' }" @click="equipment = 'inflatable'">
-              <span class="eq-icon">🎈</span><span class="eq-label">Inflatable</span>
-            </button>
+          <div class="eq-toggle">
+            <button class="eq-btn" :class="{ active: equipment === 'all' }" @click="equipment = 'all'">🛶 All</button>
+            <button class="eq-btn" :class="{ active: equipment === 'rigid' }" @click="equipment = 'rigid'">🚣 Rigid</button>
+            <button class="eq-btn" :class="{ active: equipment === 'inflatable' }" @click="equipment = 'inflatable'">🎈 Inflatable</button>
           </div>
         </div>
 
         <div class="form-group">
           <label class="form-label">Units</label>
-          <div class="equipment-toggle">
-            <button class="equipment-btn" :class="{ active: units === 'imperial' }" @click="units = 'imperial'">
-              mi / mph
-            </button>
-            <button class="equipment-btn" :class="{ active: units === 'metric' }" @click="units = 'metric'">
-              km / km/h
-            </button>
+          <div class="eq-toggle" id="unitToggleGroup">
+            <button class="eq-btn" :class="{ active: units === 'imperial' }" @click="units = 'imperial'">mi / mph</button>
+            <button class="eq-btn" :class="{ active: units === 'metric' }" @click="units = 'metric'">km / km/h</button>
           </div>
         </div>
 
@@ -1258,9 +1245,9 @@ function handleDismissFinished() {
 
 .gps-info-item {
   background: var(--card-bg);
-  padding: 5px 10px;
-  border-radius: 16px;
-  font-size: 12px;
+  padding: 4px 8px;
+  border-radius: 14px;
+  font-size: 11px;
   font-weight: 500;
   box-shadow: var(--shadow);
   white-space: nowrap;
@@ -1292,10 +1279,10 @@ function handleDismissFinished() {
 }
 
 .trip-btn {
-  padding: 12px 24px;
+  padding: 10px 20px;
   border: none;
-  border-radius: 24px;
-  font-size: 15px;
+  border-radius: 20px;
+  font-size: 14px;
   font-weight: 600;
   cursor: pointer;
   box-shadow: var(--shadow-lg);
@@ -1332,14 +1319,14 @@ function handleDismissFinished() {
 .stat { text-align: center; flex: 1; }
 
 .stat-value {
-  font-size: 18px;
+  font-size: 15px;
   font-weight: 700;
   color: var(--text);
   line-height: 1.2;
 }
 
 .stat-label {
-  font-size: 10px;
+  font-size: 9px;
   text-transform: uppercase;
   color: var(--text-light);
   font-weight: 600;
@@ -1350,13 +1337,13 @@ function handleDismissFinished() {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  margin-top: 6px;
-  padding-top: 6px;
+  margin-top: 4px;
+  padding-top: 4px;
   border-top: 1px solid var(--border);
 }
 
 .stat-mile {
-  font-size: 12px;
+  font-size: 11px;
   color: var(--text-light);
   overflow: hidden;
   text-overflow: ellipsis;

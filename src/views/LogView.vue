@@ -147,23 +147,9 @@ async function saveTrip() {
 
       <div class="form-group">
         <label class="form-label">Equipment Used</label>
-        <div class="equipment-toggle">
-          <button
-            class="equipment-btn"
-            :class="{ active: equipment === 'rigid' }"
-            @click="equipment = 'rigid'"
-          >
-            <span class="eq-icon">🚣</span>
-            <span class="eq-label">Rigid</span>
-          </button>
-          <button
-            class="equipment-btn"
-            :class="{ active: equipment === 'inflatable' }"
-            @click="equipment = 'inflatable'"
-          >
-            <span class="eq-icon">🎈</span>
-            <span class="eq-label">Inflatable</span>
-          </button>
+        <div class="eq-toggle">
+          <button class="eq-btn" :class="{ active: equipment === 'rigid' }" @click="equipment = 'rigid'">🚣 Rigid</button>
+          <button class="eq-btn" :class="{ active: equipment === 'inflatable' }" @click="equipment = 'inflatable'">🎈 Inflatable</button>
         </div>
       </div>
 

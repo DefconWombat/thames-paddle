@@ -18,7 +18,7 @@ const SPEED_PRESETS = [
   { label: 'Easy', mph: 2.0, type: 'inflatable' },
 ];
 
-const equipment = ref('rigid');
+const equipment = ref('all');
 const startPointId = ref('');
 const endPointId = ref('');
 const speedPreset = ref('3.0');
@@ -31,6 +31,7 @@ const newWaypointId = ref('');
 const newWaypointNote = ref('');
 
 const filteredSpeedPresets = computed(() => {
+  if (equipment.value === 'all') return SPEED_PRESETS.filter(p => p.type === 'rigid');
   return SPEED_PRESETS.filter(p => p.type === equipment.value);
 });
 
@@ -312,23 +313,10 @@ function getSavedRouteDist(route) {
 
       <div class="form-group">
         <label class="form-label">Equipment</label>
-        <div class="equipment-toggle">
-          <button
-            class="equipment-btn"
-            :class="{ active: equipment === 'rigid' }"
-            @click="equipment = 'rigid'"
-          >
-            <span class="eq-icon">🚣</span>
-            <span class="eq-label">Rigid</span>
-          </button>
-          <button
-            class="equipment-btn"
-            :class="{ active: equipment === 'inflatable' }"
-            @click="equipment = 'inflatable'"
-          >
-            <span class="eq-icon">🎈</span>
-            <span class="eq-label">Inflatable</span>
-          </button>
+        <div class="eq-toggle">
+          <button class="eq-btn" :class="{ active: equipment === 'all' }" @click="equipment = 'all'">🛶 All</button>
+          <button class="eq-btn" :class="{ active: equipment === 'rigid' }" @click="equipment = 'rigid'">🚣 Rigid</button>
+          <button class="eq-btn" :class="{ active: equipment === 'inflatable' }" @click="equipment = 'inflatable'">🎈 Inflatable</button>
         </div>
       </div>
 
@@ -419,21 +407,25 @@ function getSavedRouteDist(route) {
 
       <div class="form-group">
         <label class="form-label">Speed</label>
-        <select class="form-select" v-model="speedPreset">
-          <option v-for="p in filteredSpeedPresets" :key="p.mph" :value="String(p.mph)">
+        <div class="speed-selector">
+          <button v-for="p in filteredSpeedPresets" :key="p.mph"
+            class="speed-btn" :class="{ active: speedPreset === String(p.mph) }"
+            @click="speedPreset = String(p.mph)">
             {{ p.label }} ({{ p.mph }} mph)
-          </option>
-          <option value="custom">Custom...</option>
-        </select>
-        <input v-if="speedPreset === 'custom'"
-          type="number" class="form-input" style="margin-top:6px"
-          v-model.number="customSpeedInput" min="0.5" max="10" step="0.5"
-          placeholder="mph" />
+          </button>
+          <button class="speed-btn" :class="{ active: speedPreset === 'custom' }"
+            @click="speedPreset = 'custom'">Custom...</button>
+        </div>
+        <div v-if="speedPreset === 'custom'" class="speed-custom-row">
+          <input type="number" v-model.number="customSpeedInput"
+            min="0.5" max="10" step="0.5" placeholder="mph" />
+          <span style="font-size:12px;color:var(--text-light)">mph</span>
+        </div>
       </div>
 
       <!-- Route summary -->
       <div v-if="routeInfo" class="route-summary card">
-        <div class="route-direction">
+        <div class="route-direction" :class="routeInfo.downstream ? 'downstream' : 'upstream'">
           {{ routeInfo.downstream ? '⬇️ Downstream' : '⬆️ Upstream' }}
         </div>
 
@@ -621,12 +613,6 @@ function getSavedRouteDist(route) {
 
 .btn-reset:hover {
   background: var(--danger-light);
-}
-
-.route-direction {
-  font-size: 14px;
-  font-weight: 600;
-  color: var(--primary);
 }
 
 .hazard-warning {
@@ -886,6 +872,67 @@ function getSavedRouteDist(route) {
   background: var(--border);
 }
 
+/* Speed selector (button row) */
+.speed-selector {
+  display: flex;
+  gap: 4px;
+  margin-bottom: 8px;
+}
+
+.speed-btn {
+  flex: 1;
+  padding: 6px 4px;
+  border: 2px solid var(--border);
+  border-radius: var(--radius);
+  background: var(--card-bg);
+  cursor: pointer;
+  text-align: center;
+  font-size: 11px;
+  font-weight: 600;
+  transition: 0.15s;
+}
+
+.speed-btn.active {
+  border-color: var(--primary);
+  background: var(--primary-light);
+  color: var(--primary);
+}
+
+.speed-custom-row {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-bottom: 8px;
+}
+
+.speed-custom-row input {
+  width: 60px;
+  padding: 6px 8px;
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  font-size: 13px;
+  text-align: center;
+}
+
+.route-direction {
+  text-align: center;
+  font-size: 12px;
+  font-weight: 600;
+  margin-bottom: 4px;
+  padding: 4px 8px;
+  border-radius: var(--radius);
+}
+
+.route-direction.downstream {
+  color: var(--primary);
+  background: var(--primary-light);
+}
+
+.route-direction.upstream {
+  color: var(--accent);
+  background: var(--accent-light);
+}
+
 @media (max-width: 768px) {
   .plan-view {
     flex-direction: column;
@@ -900,6 +947,21 @@ function getSavedRouteDist(route) {
 
   .plan-map {
     min-height: 50vh;
+  }
+}
+
+@media (orientation: landscape) and (max-height: 500px) {
+  .plan-sidebar {
+    padding: 10px 12px;
+  }
+  .plan-view {
+    flex-direction: row;
+  }
+  .plan-sidebar {
+    width: 320px;
+    max-height: none;
+    border-bottom: none;
+    border-right: 1px solid var(--border);
   }
 }
 </style>
